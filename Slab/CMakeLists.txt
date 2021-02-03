@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(Slab LANGUAGES CUDA CXX)
+project(Slab LANGUAGES CUDA CXX VERSION 1.0.0)
 
 include(FetchContent)
 
