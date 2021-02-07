@@ -36,6 +36,10 @@
 
 #define DEFAULT_SHOULD_USE_HOST true
 
+/**
+ * Gets the number of blocks a device should support.
+ * @return
+ */
 int getBlocks() noexcept {
     cudaDeviceProp prop;
     prop.multiProcessorCount = 68;
@@ -43,16 +47,34 @@ int getBlocks() noexcept {
     return 2 * prop.multiProcessorCount;
 }
 
+/**
+ * Number of blocks for the device.
+ */
 const int BLOCKS = getBlocks();
+
+/**
+ * Threads to use in a block.
+ */
 const int THREADS_PER_BLOCK = 512;
 
+/**
+ * This is a shared GPU CPU device ptr that is unique. It has a pinned host allocation and a device allocation.
+ * @tparam T
+ */
 template<typename T>
 struct UniqueHostDevicePtr {
 
+    /**
+     * Nullptr
+     */
     UniqueHostDevicePtr() : h(nullptr), k(nullptr), s(0) {
 
     }
 
+    /**
+     * Creates pointers of size.
+     * @param size
+     */
     UniqueHostDevicePtr(size_t size) : h(nullptr), k(nullptr), s(size) {
         gpuErrchk(cudaMalloc(&k, size));
         gpuErrchk(cudaMallocHost(&h, size));
@@ -61,6 +83,10 @@ struct UniqueHostDevicePtr {
 
     UniqueHostDevicePtr(const UniqueHostDevicePtr<T> &) = delete;
 
+    /**
+     * Move contructor.
+     * @param rhs
+     */
     UniqueHostDevicePtr(UniqueHostDevicePtr<T> &&rhs) noexcept {
         this->h = rhs.h;
         this->k = rhs.k;
@@ -70,7 +96,14 @@ struct UniqueHostDevicePtr {
         rhs.s = 0;
     }
 
+    /**
+     * Move operator.
+     * @param rhs
+     * @return
+     */
     UniqueHostDevicePtr<T> &operator=(UniqueHostDevicePtr<T> &&rhs) noexcept {
+        if (k) gpuErrchk(cudaFree(k));
+        if (h) gpuErrchk(cudaFreeHost(h));
         this->h = rhs.h;
         this->k = rhs.k;
         this->s = rhs.s;
@@ -81,24 +114,43 @@ struct UniqueHostDevicePtr {
     }
 
 
+    /**
+     * Destructor.
+     */
     ~UniqueHostDevicePtr() {
         //std::cerr << "Delete called on " << (void *) k << " " << (void *) h << std::endl;
         if (k) gpuErrchk(cudaFree(k));
         if (h) gpuErrchk(cudaFreeHost(h));
     }
 
+    /**
+     * Gets host pointer.
+     * @return
+     */
     T *getHost() {
         return h;
     }
 
+    /**
+     * Gets device pointer.
+     * @return
+     */
     T *getDevice() {
         return k;
     }
 
+    /**
+     * Async movement to GPU.
+     * @param stream
+     */
     void moveToGPUAsync(cudaStream_t stream = cudaStreamDefault) {
         gpuErrchk(cudaMemcpyAsync(k, h, s, cudaMemcpyHostToDevice, stream));
     }
 
+    /**
+     * Async movement to CPU.
+     * @param stream
+     */
     void moveToCPUAsync(cudaStream_t stream = cudaStreamDefault) {
         gpuErrchk(cudaMemcpyAsync(h, k, s, cudaMemcpyDeviceToHost, stream));
     }
@@ -109,6 +161,12 @@ private:
     size_t s;
 };
 
+/**
+ * Allows for adding extra data through metaprogramming. By default B is false and it does nothing.
+ * @tparam K
+ * @tparam V
+ * @tparam B
+ */
 template<typename K, typename V, bool B = false>
 struct AddExtra {
     AddExtra() = default;
@@ -118,6 +176,13 @@ struct AddExtra {
     AddExtra(AddExtra<K, V, true> &&rhs) {}
 };
 
+/**
+ * Allows for adding extra data through metaprogramming.
+ * Adds unique host device pointers.
+ * @tparam K
+ * @tparam V
+ * @tparam B
+ */
 template<typename K, typename V>
 struct AddExtra<K, V, true> {
     AddExtra() = default;
@@ -154,6 +219,12 @@ class SlabUnified;
 template<typename K, typename V, bool UseHost = DEFAULT_SHOULD_USE_HOST>
 class BatchBuffer;
 
+/**
+ * Allocates buffers using a group allocator by default when UseHost = false.
+ * @tparam K
+ * @tparam V
+ * @tparam UseHost
+ */
 template<typename K, typename V, bool UseHost = false>
 struct AllocateBuffers {
     inline void operator()(BatchBuffer<K, V, UseHost> *b) {
@@ -174,6 +245,11 @@ struct AllocateBuffers {
     }
 };
 
+/**
+ * Allocates buffers using unique host device pointers.
+ * @tparam K
+ * @tparam V
+ */
 template<typename K, typename V>
 struct AllocateBuffers<K, V, true> {
     inline void operator()(BatchBuffer<K, V, true> *b) {
@@ -192,6 +268,12 @@ struct AllocateBuffers<K, V, true> {
     }
 };
 
+/**
+ * Moves buffers.
+ * @tparam K
+ * @tparam V
+ * @tparam UseHost
+ */
 template<typename K, typename V, bool UseHost = false>
 struct MoveBuffers {
     static inline void toCPU(BatchBuffer<K, V, false> *b, cudaStream_t stream) {
@@ -205,6 +287,12 @@ struct MoveBuffers {
 
 };
 
+/**
+ * Moves buffers.
+ * @tparam K
+ * @tparam V
+ * @tparam UseHost
+ */
 template<typename K, typename V>
 struct MoveBuffers<K, V, true> {
     static inline void toCPU(BatchBuffer<K, V, true> *b, cudaStream_t stream) {
@@ -219,7 +307,11 @@ struct MoveBuffers<K, V, true> {
     }
 };
 
-
+/**
+ * Base Slab.
+ * @tparam K
+ * @tparam V
+ */
 template<typename K, typename V>
 class Slab {
 public:
@@ -235,6 +327,12 @@ protected:
     int position{};
 };
 
+/**
+ * Buffer for batches.
+ * @tparam K
+ * @tparam V
+ * @tparam UseHost
+ */
 template<typename K, typename V, bool UseHost>
 class BatchBuffer {
 public:
@@ -285,6 +383,12 @@ private:
     friend class SlabUnified<K, V, UseHost>;
 };
 
+/**
+ * Slab hashmap using unified memory for index.
+ * @tparam K
+ * @tparam V
+ * @tparam UseHost
+ */
 template<typename K, typename V, bool UseHost>
 class SlabUnified : public Slab<K, V> {
 public:
@@ -342,6 +446,11 @@ public:
         delete allocGAlloc;
     }
 
+    /**
+     * Move operator=
+     * @param other
+     * @return
+     */
     SlabUnified<K, V> &operator=(SlabUnified<K, V> &&other) noexcept {
         gpuErrchk(cudaSetDevice(other._gpu));
 
@@ -494,6 +603,9 @@ public:
 
     }
 
+    /**
+     * Sets the underlying GPU.
+     */
     inline void setGPU() {
         gpuErrchk(cudaSetDevice(this->_gpu));
     }

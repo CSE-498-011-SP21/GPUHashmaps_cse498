@@ -20,26 +20,17 @@
  * THE SOFTWARE.
  */
 
-#ifndef GPUHASHMAPS_IMPORTANTDEFINITIONS_CUH
-#define GPUHASHMAPS_IMPORTANTDEFINITIONS_CUH
+#include <StandardSlabDefinitions.cuh>
+#include <vector>
+#include <Slab.cuh>
 
-/**
- * EMPTY<T>::value is used to denote an empty value in the map.
- * @tparam T
- */
-template<typename T>
-struct EMPTY {
-    static constexpr T value{};
+#ifndef GPUHASHMAPS_TESTHEADER_CUH
+#define GPUHASHMAPS_TESTHEADER_CUH
+
+template<>
+struct EMPTY<int *> {
+    static constexpr int *value = nullptr;
 };
 
-/**
- * compare is used to compare two objects to check if they are the same.
- * @tparam T
- * @param lhs
- * @param rhs
- * @return
- */
-template<typename T>
-__forceinline__ __host__ __device__ unsigned compare(const T &lhs, const T &rhs);
 
-#endif //GPUHASHMAPS_IMPORTANTDEFINITIONS_CUH
+#endif //GPUHASHMAPS_TESTHEADER_CUH

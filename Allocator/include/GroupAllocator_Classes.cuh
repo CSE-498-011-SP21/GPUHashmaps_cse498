@@ -59,7 +59,7 @@ namespace groupallocator {
         InPageAllocator() = delete;
 
         /**
-         * Create the in page allocator.
+         * Create the in page allocator. Not thread safe w.r.t. operation in the class.
          */
         InPageAllocator(std::size_t page_size)
                 : PAGE_SIZE(page_size) {
@@ -68,12 +68,12 @@ namespace groupallocator {
         }
 
         /**
-         * Deletes in page allocator, cuda context must exist to do so.
+         * Deletes in page allocator, cuda context must exist to do so. Not thread safe w.r.t. operation in the class.
          */
         ~InPageAllocator() { gpuAssert(cudaFree(mem), __FILE__, __LINE__); }
 
         /**
-         * Allocates memory of type T and sets *ptr to this memory of size s
+         * Allocates memory of type T and sets *ptr to this memory of size s. Thread safe. Blocking.
          * @param ptr
          * @param s
          */
@@ -87,6 +87,11 @@ namespace groupallocator {
             m.unlock();
         }
 
+        /**
+         * Frees memory at ptr. Thread safe. Blocking.
+         * @tparam T
+         * @param ptr
+         */
         template<class T>
         void free(T *ptr) {
             m.lock();
@@ -94,16 +99,34 @@ namespace groupallocator {
             m.unlock();
         }
 
+        /**
+         * Checks if ptr is contained in the page. Thread safe.
+         * @param ptr
+         * @return
+         */
         bool contains(size_t ptr) {
             return ptr >= (size_t) mem && ptr < (size_t) mem + PAGE_SIZE;
         }
 
+        /**
+         * Moves page to device. Thread safe.
+         * @param device
+         * @param stream
+         */
         void moveToDevice(int device, cudaStream_t stream) {
             gpuAssert(cudaMemPrefetchAsync(mem, PAGE_SIZE, device, stream), __FILE__, __LINE__);
         }
 
+        /**
+         * Gets the number of pages. Thread safe.
+         * @return
+         */
         size_t getPages() { return 1; }
 
+        /**
+         * Gets the size of the pages. Thread safe.
+         * @return
+         */
         size_t getPageSize() { return PAGE_SIZE; }
 
     private:
@@ -114,20 +137,20 @@ namespace groupallocator {
     };
 
     /**
-     * Allocates multiple pages of memory
+     * Allocates multiple pages of memory.
      */
     class MultiPageAllocator {
     public:
         MultiPageAllocator() = delete;
 
         /**
-         * Constructor
+         * Constructor. Not thread safe w.r.t. operation in the class.
          */
         MultiPageAllocator(std::size_t page_size)
                 : PAGE_SIZE(page_size), pagesAllocated(0) {}
 
         /**
-         * Delete function
+         * Delete function. Not thread safe w.r.t. operation in the class.
          */
         ~MultiPageAllocator() {
             m.lock();
@@ -138,7 +161,7 @@ namespace groupallocator {
         }
 
         /**
-         * Allocates memory of type T and sets *ptr to this memory of size s
+         * Allocates memory of type T and sets *ptr to this memory of size s. Thread safe. Blocking.
          * @param ptr
          * @param s
          */
@@ -157,6 +180,11 @@ namespace groupallocator {
             m.unlock();
         }
 
+        /**
+         * Frees ptr. Thread safe. Blocking.
+         * @tparam T
+         * @param ptr
+         */
         template<class T>
         void free(T *ptr) {
             m.lock();
@@ -170,6 +198,11 @@ namespace groupallocator {
             m.unlock();
         }
 
+        /**
+         * Moves pages to device. Thread safe. Blocking.
+         * @param device
+         * @param stream
+         */
         void moveToDevice(int device, cudaStream_t stream) {
             m.lock();
             for (auto i = mem.begin(); i != mem.end(); i++) {
@@ -178,15 +211,23 @@ namespace groupallocator {
             m.unlock();
         }
 
+        /**
+         * Gets the number of pages. Thread safe. Blocking.
+         * @return
+         */
         size_t getPages() {
-            std::unique_lock <std::mutex> ul(m);
+            std::unique_lock<std::mutex> ul(m);
             return pagesAllocated;
         }
 
+        /**
+         * Gets the size of pages. Thread safe.
+         * @return
+         */
         size_t getPageSize() { return PAGE_SIZE; }
 
     private:
-        std::list <std::pair<char *, size_t>> mem;
+        std::list<std::pair<char *, size_t>> mem;
         std::mutex m;
         const size_t PAGE_SIZE;
         size_t pagesAllocated;
@@ -201,7 +242,7 @@ namespace groupallocator {
         GroupAllocator() = delete;
 
         /**
-         * Constructor takes group_num to allocate to
+         * Constructor takes group_num to allocate to. Not thread safe.
          * @param group_num
          */
         GroupAllocator(int group_num, std::size_t page_size)
@@ -211,22 +252,27 @@ namespace groupallocator {
         }
 
         /**
-         * Delete function
+         * Delete function. Its a no-op.
          */
         ~GroupAllocator() {}
 
         /**
-         * Function to free all memory of group allocator
+         * Function to free all memory of group allocator. Thread safe.
          */
         void freeall() {
+            m.lock();
             for (auto &e : ipas) {
                 delete e;
             }
+            ipas.clear();
             delete mpa;
+            mpa = nullptr;
+            m.unlock();
         }
 
+
         /**
-         * Free pointer T* ptr
+         * Free pointer T* ptr. Thread safe.
          * @tparam T
          * @param ptr
          */
@@ -244,7 +290,7 @@ namespace groupallocator {
         }
 
         /**
-         * Allocates memory of type T and sets *ptr to this memory of size s
+         * Allocates memory of type T and sets *ptr to this memory of size s. Thread safe.
          * @tparam T
          * @param ptr
          * @param s
@@ -287,7 +333,7 @@ namespace groupallocator {
         }
 
         /**
-         * Move to memory device in stream
+         * Move to memory device in stream. Thread safe.
          * @param device
          * @param stream
          */
@@ -300,6 +346,10 @@ namespace groupallocator {
             m.unlock();
         }
 
+        /**
+         * Gets the pages allocated. Thread safe.
+         * @return
+         */
         size_t pagesAllocated() {
             auto s = mpa->getPages();
             m.lock();
@@ -308,11 +358,16 @@ namespace groupallocator {
             return s;
         }
 
+        /**
+         * Gets the page size. Thread safe.
+         * @return
+         */
         size_t getPageSize() {
             return PAGE_SIZE;
         }
 
     private:
+
         std::vector<InPageAllocator *> ipas;
         MultiPageAllocator *mpa;
         std::mutex m;

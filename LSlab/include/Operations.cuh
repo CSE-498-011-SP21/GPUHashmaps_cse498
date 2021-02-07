@@ -46,18 +46,35 @@ const unsigned OP_NONSUCESS = 3;
 const unsigned long long EMPTY_POINTER = 0;
 #define BASE_SLAB 0
 
+/**
+ * Data used for the slab.
+ * @tparam K
+ * @tparam V
+ */
 template<typename K, typename V>
 struct SlabData {
 
+    /**
+     * Used to substitute the underlying type for alignment/performance.
+     */
     typedef K KSub;
 
+    /**
+     * Integer lock padded to L2 cache line.
+     */
     union {
         int ilock;
         char p[128];
     }; // 128 bytes
 
+    /**
+     * Keys padded to L2$ line.
+     */
     KSub key[32]; // 256 byte
 
+    /**
+     * Values
+     */
     V value[32]; // 256 byte
 
     // the 32nd element is next
@@ -67,16 +84,27 @@ struct SlabData {
 template<typename V>
 struct SlabData<char, V> {
 
+    /**
+     * Used to substitute the underlying type for alignment/performance.
+     */
     typedef unsigned long long KSub;
 
-
+    /**
+     * Integer lock padded to L2 cache line.
+     */
     union {
         int ilock;
         char p[128];
     }; // 128 bytes
 
+    /**
+     * Keys padded to L2$ line.
+     */
     KSub key[32]; // 256 byte
 
+    /**
+     * Values
+     */
     V value[32]; // 256 byte
 
     // the 32nd element is next
@@ -85,16 +113,27 @@ struct SlabData<char, V> {
 
 template<typename V>
 struct SlabData<short, V> {
-
+    /**
+     * Used to substitute the underlying type for alignment/performance.
+     */
     typedef unsigned long long KSub;
 
+    /**
+     * Integer lock padded to L2 cache line.
+     */
     union {
         int ilock;
         char p[128];
     }; // 128 bytes
 
+    /**
+     * Keys padded to L2$ line.
+     */
     KSub key[32]; // 256 byte
 
+    /**
+     * Values
+     */
     V value[32]; // 256 byte
 
     // the 32nd element is next
@@ -103,22 +142,38 @@ struct SlabData<short, V> {
 
 template<typename V>
 struct SlabData<unsigned, V> {
-
+    /**
+     * Used to substitute the underlying type for alignment/performance.
+     */
     typedef unsigned long long KSub;
 
+    /**
+     * Integer lock padded to L2 cache line.
+     */
     union {
         int ilock;
         char p[128];
     }; // 128 bytes
 
+    /**
+     * Keys padded to L2$ line.
+     */
     KSub key[32]; // 256 byte
 
+    /**
+     * Values
+     */
     V value[32]; // 256 byte
 
     // the 32nd element is next
     //unsigned long long *next;
 };
 
+/**
+ * MemoryBlock is a block for the GPU allocator.
+ * @tparam K
+ * @tparam V
+ */
 template<typename K, typename V>
 struct MemoryBlock {
     MemoryBlock() : bitmap(~0u), slab(nullptr) {
@@ -128,11 +183,21 @@ struct MemoryBlock {
     SlabData<K, V> *slab;// 64 slabs
 };
 
+/**
+ * Super block contains memory blocks.
+ * @tparam K
+ * @tparam V
+ */
 template<typename K, typename V>
 struct SuperBlock {
     MemoryBlock<K, V> *memblocks;// 32 memblocks
 };
 
+/**
+ * This is the context for the allocator.
+ * @tparam K
+ * @tparam V
+ */
 template<typename K, typename V>
 struct WarpAllocCtx {
     WarpAllocCtx() : blocks(nullptr) {
@@ -143,12 +208,31 @@ struct WarpAllocCtx {
     // there should be a block per warp ie threadsPerBlock * blocks / 32 superblocks
 };
 
+/**
+ * Outputs slabs to stream.
+ * @tparam K
+ * @tparam V
+ * @param output
+ * @param s
+ * @return
+ */
 template<typename K, typename V>
 std::ostream &operator<<(std::ostream &output, const SlabData<K, V> &s) {
     output << s.keyValue;
     return output;
 }
 
+/**
+ * Sets up the warp allocator with galloc.
+ * @tparam K
+ * @tparam V
+ * @param gAlloc
+ * @param threadsPerBlock
+ * @param blocks
+ * @param gpuid
+ * @param stream
+ * @return
+ */
 template<typename K, typename V>
 WarpAllocCtx<K, V>
 setupWarpAllocCtxGroup(groupallocator::GroupAllocator &gAlloc, int threadsPerBlock, int blocks, int gpuid = 0,
@@ -179,6 +263,11 @@ setupWarpAllocCtxGroup(groupallocator::GroupAllocator &gAlloc, int threadsPerBlo
     return actx;
 }
 
+/**
+ * Context for the slab hashmap
+ * @tparam K
+ * @tparam V
+ */
 template<typename K, typename V>
 struct SlabCtx {
     SlabCtx() : slabs(nullptr), num_of_buckets(0) {}
@@ -249,7 +338,7 @@ UnlockSlab(const unsigned long long &next, const unsigned &src_bucket, const uns
            volatile SlabData<K, V> **slabs) {
 
     if (laneId == 0) {
-        auto ilock = (int *)  &(slabs[src_bucket]->ilock);
+        auto ilock = (int *) &(slabs[src_bucket]->ilock);
         atomicExch(ilock, 0);
     }
 
@@ -274,15 +363,35 @@ SharedUnlockSlab(const unsigned long long &next, const unsigned &src_bucket, con
 
 }
 
-
+/**
+ * Reads the slab key.
+ * @tparam K
+ * @tparam V
+ * @param next
+ * @param src_bucket
+ * @param laneId
+ * @param slabs
+ * @return
+ */
 template<typename K, typename V>
 __forceinline__ __device__ typename SlabData<K, V>::KSub
 ReadSlabKey(const unsigned long long &next, const unsigned &src_bucket,
             const unsigned laneId, volatile SlabData<K, V> **slabs) {
-    static_assert(sizeof(typename SlabData<K, V>::KSub) >= sizeof(void*), "Need to be able to substitute pointers for values");
+    static_assert(sizeof(typename SlabData<K, V>::KSub) >= sizeof(void *),
+                  "Need to be able to substitute pointers for values");
     return next == BASE_SLAB ? slabs[src_bucket]->key[laneId] : ((SlabData<K, V> *) next)->key[laneId];
 }
 
+/**
+ * Reads the slab value.
+ * @tparam K
+ * @tparam V
+ * @param next
+ * @param src_bucket
+ * @param laneId
+ * @param slabs
+ * @return
+ */
 template<typename K, typename V>
 __forceinline__ __device__ V
 ReadSlabValue(const unsigned long long &next, const unsigned &src_bucket,
@@ -291,14 +400,37 @@ ReadSlabValue(const unsigned long long &next, const unsigned &src_bucket,
 }
 
 
+/**
+ * Gets the address of the key.
+ * @tparam K
+ * @tparam V
+ * @param next
+ * @param src_bucket
+ * @param laneId
+ * @param slabs
+ * @param num_of_buckets
+ * @return
+ */
 template<typename K, typename V>
 __forceinline__ __device__ volatile typename SlabData<K, V>::KSub *
 SlabAddressKey(const unsigned long long &next, const unsigned &src_bucket,
                const unsigned laneId, volatile SlabData<K, V> **slabs,
                unsigned num_of_buckets) {
-    return (volatile typename SlabData<K, V>::KSub *) ((next == BASE_SLAB ? slabs[src_bucket]->key : ((SlabData<K, V> *) next)->key) + laneId);
+    return (volatile typename SlabData<K, V>::KSub *) (
+            (next == BASE_SLAB ? slabs[src_bucket]->key : ((SlabData<K, V> *) next)->key) + laneId);
 }
 
+/**
+ * Gets the address of the value.
+ * @tparam K
+ * @tparam V
+ * @param next
+ * @param src_bucket
+ * @param laneId
+ * @param slabs
+ * @param num_of_buckets
+ * @return
+ */
 template<typename K, typename V>
 __forceinline__ __device__ volatile V *
 SlabAddressValue(const unsigned long long &next, const unsigned &src_bucket,
@@ -307,7 +439,13 @@ SlabAddressValue(const unsigned long long &next, const unsigned &src_bucket,
     return (next == BASE_SLAB ? slabs[src_bucket]->value : ((SlabData<K, V> *) next)->value) + laneId;
 }
 
-// just doing parallel shared-nothing allocation
+/**
+ * Parallel shared nothing allocation of a slab.
+ * @tparam K
+ * @tparam V
+ * @param ctx
+ * @return
+ */
 template<typename K, typename V>
 __forceinline__ __device__ unsigned long long warp_allocate(WarpAllocCtx<K, V> ctx) {
 
@@ -322,7 +460,7 @@ __forceinline__ __device__ unsigned long long warp_allocate(WarpAllocCtx<K, V> c
     int index = __ffs((int) bitmap) - 1;
     int ballotThread = __ffs((int) __ballot_sync(~0u, (index != -1))) - 1;
     if (ballotThread == -1) {
-        if(laneId == 0)
+        if (laneId == 0)
             printf("Ran out of memory\n");
         __threadfence_system();
         __syncwarp();
@@ -340,6 +478,13 @@ __forceinline__ __device__ unsigned long long warp_allocate(WarpAllocCtx<K, V> c
     return location;
 }
 
+/**
+ * Parallel shared nothing deallocation of a slab.
+ * @tparam K
+ * @tparam V
+ * @param ctx
+ * @param l
+ */
 template<typename K, typename V>
 __forceinline__ __device__ void deallocate(WarpAllocCtx<K, V> ctx, unsigned long long l) {
 
@@ -358,7 +503,17 @@ __forceinline__ __device__ void deallocate(WarpAllocCtx<K, V> ctx, unsigned long
 }
 
 
-// manually inlined
+/**
+ * Search operation.
+ * @tparam K
+ * @tparam V
+ * @param is_active
+ * @param myKey
+ * @param myValue
+ * @param modhash
+ * @param slabs
+ * @param num_of_buckets
+ */
 template<typename K, typename V>
 __forceinline__ __device__ void warp_operation_search(bool &is_active, const K &myKey,
                                                       V &myValue, const unsigned &modhash,
@@ -418,7 +573,7 @@ __forceinline__ __device__ void warp_operation_search(bool &is_active, const K &
 }
 
 /**
- * Returns value when removed or empty on removal
+ * Delete operation. Returns value when removed or empty on removal
  * @tparam K
  * @tparam V
  * @param is_active
@@ -481,6 +636,18 @@ warp_operation_delete(bool &is_active, const K &myKey,
     }
 }
 
+/**
+ * Replace operation. Returns the old value.
+ * @tparam K
+ * @tparam V
+ * @param is_active
+ * @param myKey
+ * @param myValue
+ * @param modhash
+ * @param slabs
+ * @param num_of_buckets
+ * @param ctx
+ */
 template<typename K, typename V>
 __forceinline__ __device__ void
 warp_operation_replace(bool &is_active, const K &myKey,
@@ -506,7 +673,7 @@ warp_operation_replace(bool &is_active, const K &myKey,
         auto src_key = (K) __shfl_sync(~0u, (unsigned long long) myKey, src_lane);
         unsigned src_bucket = __shfl_sync(~0u, modhash, (int) src_lane);
 
-        if(work_queue != last_work_queue){
+        if (work_queue != last_work_queue) {
             foundEmptyNext = false;
             LockSlab(BASE_SLAB, src_bucket, laneId, slabs);
         }
@@ -525,7 +692,7 @@ warp_operation_replace(bool &is_active, const K &myKey,
         bool to_share = (compare(read_key, src_key) == 0);
         int masked_ballot = (int) (__ballot_sync(~0u, to_share) & VALID_KEY_MASK);
 
-        if(!foundEmptyNext && read_key == EMPTY<K>::value){
+        if (!foundEmptyNext && read_key == EMPTY<K>::value) {
             foundEmptyNext = true;
             empty_next = next;
         }
@@ -534,7 +701,7 @@ warp_operation_replace(bool &is_active, const K &myKey,
             if (src_lane == laneId) {
                 unsigned dest_lane = (unsigned) __ffs(masked_ballot) - 1;
                 volatile K *addrKey =
-                        (volatile K*) SlabAddressKey(next, src_bucket, dest_lane, slabs, num_of_buckets);
+                        (volatile K *) SlabAddressKey(next, src_bucket, dest_lane, slabs, num_of_buckets);
                 volatile V *addrValue =
                         SlabAddressValue(next, src_bucket, dest_lane, slabs, num_of_buckets);
                 V tmpValue = EMPTY<V>::value;
@@ -558,7 +725,8 @@ warp_operation_replace(bool &is_active, const K &myKey,
                     unsigned new_empty_next = __shfl_sync(~0u, empty_next, (int) dest_lane);
                     if (src_lane == laneId) {
                         volatile K *addrKey =
-                                (volatile K*) SlabAddressKey(new_empty_next, src_bucket, dest_lane, slabs, num_of_buckets);
+                                (volatile K *) SlabAddressKey(new_empty_next, src_bucket, dest_lane, slabs,
+                                                              num_of_buckets);
                         volatile V *addrValue =
                                 SlabAddressValue(new_empty_next, src_bucket, dest_lane, slabs, num_of_buckets);
                         V tmpValue = EMPTY<V>::value;
@@ -576,8 +744,8 @@ warp_operation_replace(bool &is_active, const K &myKey,
                     unsigned long long new_slab_ptr = warp_allocate(ctx);
                     if (laneId == ADDRESS_LANE - 1) {
                         auto *slabAddr = SlabAddressKey(next, src_bucket, ADDRESS_LANE - 1,
-                                                                               slabs, num_of_buckets);
-                        *((unsigned long long*)slabAddr) = new_slab_ptr;
+                                                        slabs, num_of_buckets);
+                        *((unsigned long long *) slabAddr) = new_slab_ptr;
                         __threadfence_system();
                     }
                     next = new_slab_ptr;
@@ -596,6 +764,16 @@ warp_operation_replace(bool &is_active, const K &myKey,
     }
 }
 
+/**
+ * Sets up a slab context using gAlloc.
+ * @tparam K
+ * @tparam V
+ * @param gAlloc
+ * @param size
+ * @param gpuid
+ * @param stream
+ * @return
+ */
 template<typename K, typename V>
 SlabCtx<K, V> *setUpGroup(groupallocator::GroupAllocator &gAlloc, unsigned size, int gpuid = 0,
                           cudaStream_t stream = cudaStreamDefault) {

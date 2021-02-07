@@ -4,6 +4,8 @@ project(LSlab LANGUAGES CUDA CXX VERSION 1.0.0)
 
 set(CXX_STANDARD 14)
 
+find_package(GTest CONFIG REQUIRED)
+
 message("BUILD TYPE: ${CMAKE_BUILD_TYPE}")
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -45,6 +47,10 @@ target_link_libraries(lslab_benchmark lslab)
 
 add_executable(lslab_memory_benchmark benchmark/benchmark_mem.cu)
 target_link_libraries(lslab_memory_benchmark lslab)
+
+add_executable(slabunified_test test/slabunified_test.cu)
+target_link_libraries(slabunified_test PRIVATE  GTest::gtest GTest::gmock GTest::gtest_main lslab )
+add_test(slabunified_test slabunified_test)
 
 set(TARGETLIST lslab)
 

@@ -26,18 +26,39 @@
 #ifndef GPUMEMORY_CUH
 #define GPUMEMORY_CUH
 
+/**
+ * Maintains a host to device maping of memory. There is minimal encapsulation to allow for many optimizations.
+ * @tparam T
+ */
 template<typename T>
 struct GPUCPUMemory {
 
+    /**
+     * Creates nullptrs.
+     */
     GPUCPUMemory() : host(nullptr), size(0), device(nullptr) {
     }
 
+    /**
+     * Creates a host to device mapping of size.
+     * @param size
+     */
     GPUCPUMemory(size_t size) : GPUCPUMemory(new T[size], size) {}
 
+    /**
+     * Creates a host to device mapping of ptr h of size to device ptr of size.
+     * h must be allocated with new[] and is owned by this class.
+     * @param h
+     * @param size
+     */
     GPUCPUMemory(T *h, size_t size) : host(h), size(size), device(new T *[1]) {
         gpuErrchk(cudaMalloc(&device[0], sizeof(T) * size))
     }
 
+    /**
+     * Move constructor.
+     * @param ref
+     */
     GPUCPUMemory(GPUCPUMemory<T> &&ref) noexcept {
         host = ref.host;
         device = ref.device;
@@ -46,7 +67,11 @@ struct GPUCPUMemory {
         ref.device = nullptr;
     }
 
+    /**
+     * Destructor frees underlying memory.
+     */
     ~GPUCPUMemory() {
+        delete[] host;
         if (device != nullptr) {
             std::cerr << "Deleting memory\n";
             gpuErrchk(cudaFree(*device))
@@ -54,8 +79,14 @@ struct GPUCPUMemory {
         }
     }
 
+    /**
+     * Move operator=
+     * @param other
+     * @return
+     */
     GPUCPUMemory<T> &operator=(GPUCPUMemory<T> &&other) {
         if (&other != this) {
+            delete[] host;
             if (device != nullptr) {
                 gpuErrchk(cudaFree(*device))
                 delete[] device;
@@ -69,16 +100,26 @@ struct GPUCPUMemory {
         return *this;
     }
 
+    /**
+     * Moves data to GPU.
+     */
     void movetoGPU() {
         gpuErrchk(
                 cudaMemcpy(*device, host, sizeof(T) * size, cudaMemcpyHostToDevice))
     }
 
+    /**
+     * Moves data to CPU.
+     */
     void movetoCPU() {
         gpuErrchk(
                 cudaMemcpy(host, *device, sizeof(T) * size, cudaMemcpyDeviceToHost))
     }
 
+    /**
+     * Gets the device pointer.
+     * @return
+     */
     T *getDevice() {
         return *device;
     }

@@ -44,10 +44,12 @@ namespace groupallocator {
          * Create context
          */
         Context() {}
+
         /**
          * Delete context
          */
         ~Context() {}
+
         /**
          * Size of pages to use
          */
@@ -65,7 +67,7 @@ namespace groupallocator {
     template<typename T>
     void allocate(T **ptr, size_t s, const Context ctx, int group = -1, bool forceAligned128 = false) {
         groupMapMutex.lock();
-        std::shared_ptr <GroupAllocator> g = allocator[group];
+        std::shared_ptr<GroupAllocator> g = allocator[group];
         if (g == nullptr) {
             g = std::make_shared<GroupAllocator>(group, ctx.page_size);
             allocator[group] = g;
@@ -84,7 +86,7 @@ namespace groupallocator {
     template<typename T>
     void free(T *p, int group = -1) {
         groupMapMutex.lock();
-        std::shared_ptr <GroupAllocator> g = allocator[group];
+        std::shared_ptr<GroupAllocator> g = allocator[group];
         groupMapMutex.unlock();
         if (g != nullptr) {
             g->free(p);
@@ -92,7 +94,7 @@ namespace groupallocator {
     }
 
     /**
-     * Cleans up the allocator by freeing everything so there is no memory leak.
+     * Cleans up the allocator by freeing everything so there is no memory leak. This is no longer needed and is a no-op.
      * Thread safe.
      */
     void freeall() {
@@ -110,9 +112,9 @@ namespace groupallocator {
      * @param gpuID
      * @param stream
      */
-    void moveToGPU(int group = -1, int gpuID = 0, cudaStream_t stream = cudaStreamDefault){
+    void moveToGPU(int group = -1, int gpuID = 0, cudaStream_t stream = cudaStreamDefault) {
         groupMapMutex.lock();
-        std::shared_ptr <GroupAllocator> g = allocator[group];
+        std::shared_ptr<GroupAllocator> g = allocator[group];
         groupMapMutex.unlock();
         if (g != nullptr) {
             //std::cerr << "Using stream " << stream << std::endl;
@@ -126,9 +128,9 @@ namespace groupallocator {
      * @param group
      * @param stream
      */
-    void moveToCPU(int group = -1, cudaStream_t stream = cudaStreamDefault){
+    void moveToCPU(int group = -1, cudaStream_t stream = cudaStreamDefault) {
         groupMapMutex.lock();
-        std::shared_ptr <GroupAllocator> g = allocator[group];
+        std::shared_ptr<GroupAllocator> g = allocator[group];
         groupMapMutex.unlock();
         if (g != nullptr) {
             //std::cerr << "Using stream " << stream << std::endl;

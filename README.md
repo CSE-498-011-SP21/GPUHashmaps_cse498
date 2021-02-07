@@ -11,3 +11,4 @@ Implementations of our LSlab hashmap, MegaKV, and Slab.
 - Use the vcpkg/scripts/buildsystems/vcpkg.cmake file as 
   the CMAKE_TOOLCHAIN_FILE with cmake
 - Compile with cmake for your system
+- run make test for sanity checks
