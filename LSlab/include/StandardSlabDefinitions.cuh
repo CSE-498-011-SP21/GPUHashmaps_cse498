@@ -20,6 +20,11 @@
  * THE SOFTWARE.
  */
 
+/**
+ * @file
+ * @breif Has definitions that are useful in using slab.
+ */
+
 #include <Operations.cuh>
 #include <functional>
 

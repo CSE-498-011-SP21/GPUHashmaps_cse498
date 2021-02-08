@@ -20,4 +20,9 @@
  * THE SOFTWARE.
  */
 
+/**
+ * @file
+ * @breif Imports the standard interface for the group allocator.
+ */
+
 #include "GroupAllocator.cuh"

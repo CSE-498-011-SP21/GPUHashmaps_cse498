@@ -20,6 +20,11 @@
  * THE SOFTWARE.
  */
 
+/**
+ * @file
+ * @brief Has important definitions that are used in programming Slab.
+ */
+
 #ifndef GPUHASHMAPS_IMPORTANTDEFINITIONS_CUH
 #define GPUHASHMAPS_IMPORTANTDEFINITIONS_CUH
 

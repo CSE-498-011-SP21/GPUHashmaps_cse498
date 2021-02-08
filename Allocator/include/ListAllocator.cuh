@@ -20,6 +20,11 @@
  * THE SOFTWARE.
  */
 
+/**
+ * @file
+ * @brief Contains list allocation class.
+ */
+
 #include <iostream>
 #include <cassert>
 

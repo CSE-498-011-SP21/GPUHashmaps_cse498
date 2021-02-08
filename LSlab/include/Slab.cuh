@@ -21,6 +21,8 @@
  */
 
 /**
+ * @file
+ * @breif Contains classes for slab.
  * @author dePaul Miller
  */
 #include <atomic>

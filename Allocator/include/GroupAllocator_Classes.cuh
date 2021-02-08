@@ -20,6 +20,11 @@
  * THE SOFTWARE.
  */
 
+/**
+ * @file
+ * @breif Classes to handle allocation by group allocator.
+ */
+
 #ifndef GPUHASHMAPS_GROUPALLOCATOR_CLASSES_CUH
 #define GPUHASHMAPS_GROUPALLOCATOR_CLASSES_CUH
 

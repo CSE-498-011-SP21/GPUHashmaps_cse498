@@ -20,6 +20,11 @@
  * THE SOFTWARE.
  */
 
+/**
+ * @file
+ * @breif Contains operations for Slab.
+ */
+
 #include <groupallocator>
 #include <cassert>
 #include <cstdio>
@@ -81,6 +86,10 @@ struct SlabData {
     //unsigned long long *next;
 };
 
+/**
+ * Has a value V with a char key.
+ * @tparam V
+ */
 template<typename V>
 struct SlabData<char, V> {
 
@@ -111,6 +120,10 @@ struct SlabData<char, V> {
     //unsigned long long *next;
 };
 
+/**
+ * Has a short key.
+ * @tparam V
+ */
 template<typename V>
 struct SlabData<short, V> {
     /**
@@ -140,6 +153,10 @@ struct SlabData<short, V> {
     //unsigned long long *next;
 };
 
+/**
+ * Has a unsigned key.
+ * @tparam V
+ */
 template<typename V>
 struct SlabData<unsigned, V> {
     /**

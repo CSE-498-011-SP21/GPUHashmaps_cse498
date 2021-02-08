@@ -20,6 +20,12 @@
  * THE SOFTWARE.
  */
 
+/**
+ * @file
+ * @breif Does error checking.
+ * Note that there is no errors thrown only error codes. It is much easier to handle this way.
+ */
+
 #include <cstdio>
 
 #ifndef GPUERRCHK_CU
@@ -27,6 +33,13 @@
 
 #define gpuErrchk(ans)                                                         \
   { gpuAssert_slab((ans), __FILE__, __LINE__); }
+/**
+ * Checks that the code compiled correctly.
+ * @param code
+ * @param file
+ * @param line
+ * @param abort
+ */
 inline void gpuAssert_slab(cudaError_t code, const char *file, int line,
                       bool abort = true) {
   if (code != cudaSuccess) {

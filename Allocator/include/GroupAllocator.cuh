@@ -20,6 +20,11 @@
  * THE SOFTWARE.
  */
 
+/**
+ * @file
+ * @brief Handles general group allocation.
+ */
+
 #ifndef GPUHASHMAPS_GROUPALLOCATOR_CUH
 #define GPUHASHMAPS_GROUPALLOCATOR_CUH
 

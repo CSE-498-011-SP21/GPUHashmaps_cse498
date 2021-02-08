@@ -20,28 +20,61 @@
  * THE SOFTWARE.
  */
 
+/**
+ * @file
+ * @brief Has the kernel used for execution.
+ */
+
 #include "Operations.cuh"
 
 #ifndef GPUKEYVALUESTORE_STDREQUESTHANDLER_CUH
 #define GPUKEYVALUESTORE_STDREQUESTHANDLER_CUH
 
+/*
+ * turning this into an enum may be worthwhile perhaps
+ * especially as more functionality is added.
+ */
+
+/**
+ * Marks a put.
+ */
 const int REQUEST_INSERT = 1;
+/**
+ * Marks a get.
+ */
 const int REQUEST_GET = 2;
+/**
+ * Marks a remove.
+ */
 const int REQUEST_REMOVE = 3;
+/**
+ * Marks an empty request.
+ */
 const int REQUEST_EMPTY = 0;
 
 /**
+ * Enum that may be used in the future to mark requests.
+ */
+enum RequestType {
+    RQ_NIL = REQUEST_EMPTY,
+    RQ_PUT = REQUEST_INSERT,
+    RQ_GET = REQUEST_GET,
+    RQ_DEL = REQUEST_REMOVE
+};
+
+
+/**
  * mvValue index is set to the value on a GET or EMPTY<V>::value if there is no value
- * It is set to (V)1 on a successful INSERT or REMOVE and EMPTY<V>::value on an unsuccessful one
- * @tparam K
- * @tparam V
- * @param slabs
- * @param num_of_buckets
- * @param myKey
- * @param myValue
- * @param myHash
- * @param request
- * @param ctx
+ * It is set to the previous value on a successful INSERT or REMOVE and EMPTY<V>::value on an unsuccessful one
+ * @tparam K key type
+ * @tparam V value type
+ * @param slabs slab data structure
+ * @param num_of_buckets the number of buckets in the slab data structure
+ * @param myKey array of keys to perform requests with
+ * @param myValue array of values to perform requests with
+ * @param myHash array of hashes
+ * @param request array of request identifiers
+ * @param ctx context object for the allocator
  */
 template<typename K, typename V>
 __global__ void requestHandler(volatile SlabData<K, V> **slabs, unsigned num_of_buckets,
